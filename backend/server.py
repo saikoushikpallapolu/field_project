@@ -81,7 +81,12 @@ def _load_model():
             state_dict = checkpoint.get(
                 "model_state_dict", checkpoint.get("state_dict", checkpoint)
             )
-            clean_state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
+            clean_state_dict = {
+                k.replace("module.", "")
+                .replace(".cbam.ca.", ".cbam.channel_attn.")
+                .replace(".cbam.sa.", ".cbam.spatial_attn."): v
+                for k, v in state_dict.items()
+            }
             _model.load_state_dict(clean_state_dict, strict=True)
             _load_status = f"✅ Weights loaded — {len(clean_state_dict)} tensors."
         except Exception as e:
@@ -237,8 +242,8 @@ async def analyze(file: UploadFile = File(...), threshold: int = Form(70)):
 
                     inp = transform(tile).unsqueeze(0).to(_device)
                     logits = _model(inp)
-                    # Temperature Scaling (T=1.5) for calibrated confidence
-                    probs = F.softmax(logits / 1.5, dim=1)[0]
+                    # Temperature Scaling removed for partially trained model
+                    probs = F.softmax(logits, dim=1)[0]
                     conf, pred = torch.max(probs, 0)
                     conf_pct = conf.item() * 100
 
@@ -330,17 +335,17 @@ async def gradcam_endpoint(
         raw_tile = orig.crop((sx, sy, min(sx + TILE_SIZE, w), min(sy + TILE_SIZE, h)))
 
         # Grad-CAM (exact target layer from app.py)
-        cam = GradCAM(model=_model, target_layers=[_model.conv6[-1]])
+        cam = GradCAM(model=_model, target_layers=[_model.stage5[-1]])
         grayscale = cam(input_tensor=transform(raw_tile).unsqueeze(0).to(_device))[0, :]
         viz = show_cam_on_image(
             np.array(raw_tile).astype(np.float32) / 255, grayscale, use_rgb=True
         )
 
-        # Prediction for the tile with Temperature Scaling
+        # Prediction for the tile
         with torch.no_grad():
             inp = transform(raw_tile).unsqueeze(0).to(_device)
             logits = _model(inp)
-            probs = F.softmax(logits / 1.5, dim=1)[0]
+            probs = F.softmax(logits, dim=1)[0]
             conf, pred = torch.max(probs, 0)
             lbl = CLASS_NAMES[pred.item()]
 

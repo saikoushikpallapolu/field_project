@@ -130,7 +130,7 @@ function setupSlider() {
     $("thresholdDisplay").textContent = `${s.value}%`;
     updateSliderBg(s.value);
   });
-  updateSliderBg(70);
+  updateSliderBg(30);
 }
 function updateSliderBg(val) {
   $("thresholdSlider").style.background =
