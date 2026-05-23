@@ -77,7 +77,7 @@ def _load_model():
     )
     if os.path.exists(weights_path):
         try:
-            checkpoint = torch.load(weights_path, map_location=_device)
+            checkpoint = torch.load(weights_path, map_location=_device, weights_only=False)
             state_dict = checkpoint.get(
                 "model_state_dict", checkpoint.get("state_dict", checkpoint)
             )
@@ -335,7 +335,7 @@ async def gradcam_endpoint(
         raw_tile = orig.crop((sx, sy, min(sx + TILE_SIZE, w), min(sy + TILE_SIZE, h)))
 
         # Grad-CAM (exact target layer from app.py)
-        cam = GradCAM(model=_model, target_layers=[_model.stage5[-1]])
+        cam = GradCAM(model=_model, target_layers=[_model.stage5[-1].conv2])
         grayscale = cam(input_tensor=transform(raw_tile).unsqueeze(0).to(_device))[0, :]
         viz = show_cam_on_image(
             np.array(raw_tile).astype(np.float32) / 255, grayscale, use_rgb=True

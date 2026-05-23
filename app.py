@@ -225,48 +225,48 @@ with col_main:
                     w, h = orig.size
                     TILE_SIZE = 256
                     overlay = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-                draw = ImageDraw.Draw(overlay)
-                counts = {cls: 0 for cls in CLASS_NAMES}
-                uncert = 0
-                
-                prog = st.progress(0)
-                y_steps = range(0, h, TILE_SIZE)
-                x_steps = range(0, w, TILE_SIZE)
-                total = len(y_steps) * len(x_steps)
-                curr = 0
-                
-                with torch.no_grad():
-                    for y in y_steps:
-                        for x in x_steps:
-                            box = (x, y, min(x+TILE_SIZE, w), min(y+TILE_SIZE, h))
-                            tile = orig.crop(box)
-                            if tile.size[0] < 128 or tile.size[1] < 128: continue
-                            
-                            inp = transform(tile).unsqueeze(0).to(device)
-                            probs = F.softmax(model(inp), dim=1)[0]
-                            conf, pred = torch.max(probs, 0)
-                            conf_pct = conf.item() * 100
-                            
-                            if conf_pct < confidence_threshold:
-                                uncert += 1
-                                draw.rectangle(box, fill=(255, 255, 0, 150), outline="#FFFF00", width=2)
-                            else:
-                                lbl = CLASS_NAMES[pred.item()]
-                                counts[lbl] += 1
-                                r, g, b = int(CLASS_COLORS[lbl][1:3], 16), int(CLASS_COLORS[lbl][3:5], 16), int(CLASS_COLORS[lbl][5:7], 16)
-                                draw.rectangle(box, fill=(r, g, b, 150), outline="white", width=1)
-                            
-                            curr += 1
-                            prog.progress(curr/total)
-                
-                st.session_state.final_composite = Image.alpha_composite(orig.convert('RGBA'), overlay)
-                
-                proc_total = sum(counts.values()) + uncert
-                df_data = [{"Tissue": k, "Count": v, "Percentage": (v/proc_total)*100} for k, v in counts.items()]
-                df_data.append({"Tissue": "UNCERTAIN", "Count": uncert, "Percentage": (uncert/proc_total)*100})
-                st.session_state.df_counts = pd.DataFrame(df_data)
-                st.session_state.analysis_done = True
-                st.rerun()
+                    draw = ImageDraw.Draw(overlay)
+                    counts = {cls: 0 for cls in CLASS_NAMES}
+                    uncert = 0
+                    
+                    prog = st.progress(0)
+                    y_steps = range(0, h, TILE_SIZE)
+                    x_steps = range(0, w, TILE_SIZE)
+                    total = len(y_steps) * len(x_steps)
+                    curr = 0
+                    
+                    with torch.no_grad():
+                        for y in y_steps:
+                            for x in x_steps:
+                                box = (x, y, min(x+TILE_SIZE, w), min(y+TILE_SIZE, h))
+                                tile = orig.crop(box)
+                                if tile.size[0] < 128 or tile.size[1] < 128: continue
+                                
+                                inp = transform(tile).unsqueeze(0).to(device)
+                                probs = F.softmax(model(inp), dim=1)[0]
+                                conf, pred = torch.max(probs, 0)
+                                conf_pct = conf.item() * 100
+                                
+                                if conf_pct < confidence_threshold:
+                                    uncert += 1
+                                    draw.rectangle(box, fill=(255, 255, 0, 150), outline="#FFFF00", width=2)
+                                else:
+                                    lbl = CLASS_NAMES[pred.item()]
+                                    counts[lbl] += 1
+                                    r, g, b = int(CLASS_COLORS[lbl][1:3], 16), int(CLASS_COLORS[lbl][3:5], 16), int(CLASS_COLORS[lbl][5:7], 16)
+                                    draw.rectangle(box, fill=(r, g, b, 150), outline="white", width=1)
+                                
+                                curr += 1
+                                prog.progress(curr/total)
+                    
+                    st.session_state.final_composite = Image.alpha_composite(orig.convert('RGBA'), overlay)
+                    
+                    proc_total = sum(counts.values()) + uncert
+                    df_data = [{"Tissue": k, "Count": v, "Percentage": (v/proc_total)*100} for k, v in counts.items()]
+                    df_data.append({"Tissue": "UNCERTAIN", "Count": uncert, "Percentage": (uncert/proc_total)*100})
+                    st.session_state.df_counts = pd.DataFrame(df_data)
+                    st.session_state.analysis_done = True
+                    st.rerun()
         else:
             st.info("Please upload a histopathology slide on the left to begin analysis.")
 
@@ -286,7 +286,7 @@ with col_main:
                 
                 st.markdown("#### ⚡ Click-based Explainability (Grad-CAM)")
                 tc1, tc2 = st.columns(2)
-                cam = GradCAM(model=model, target_layers=[model.conv6[-1]])
+                cam = GradCAM(model=model, target_layers=[model.stage5[-1].conv2])
                 grayscale = cam(input_tensor=transform(raw_tile).unsqueeze(0).to(device))[0, :]
                 viz = show_cam_on_image(np.array(raw_tile).astype(np.float32)/255, grayscale, use_rgb=True)
                 tc1.image(raw_tile, caption="Selected Tile", use_container_width=True)
