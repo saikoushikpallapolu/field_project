@@ -8,9 +8,7 @@ __pycache__/
 dist/
 build/
 
-# Weights (large binary files - download via HuggingFace)
-weights/
-*.pth
+# Weights (tracked via Git LFS)
 *.bin
 *.ckpt
 
